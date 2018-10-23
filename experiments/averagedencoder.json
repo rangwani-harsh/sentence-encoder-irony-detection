@@ -1,0 +1,51 @@
+{
+  "dataset_reader": {
+    "type": "csv_classification_reader",
+    "delimiter": "\t",
+
+    "pos_input": 2,
+    "pos_gold_label": 1,
+    
+    "tokenizer": {
+      "word_splitter": {
+        "language": "en"
+      }
+    }
+  },
+  "train_data_path": "dataset/SemEval2018-T4-train-taskA_emoji.txt",
+  "test_data_path": "dataset/SemEval2018-T3_gold_test_taskA_emoji.txt",
+  "evaluate_on_test":true,
+  "model": {
+    "type": "irony_classifier",
+    "text_field_embedder": {
+            "tokens": {
+              "type": "embedding",
+              "embedding_dim": 300
+          }
+    },
+    "tweet_encoder": {
+            "type": "boe",
+            "embedding_dim": 300,
+            "averaged": false
+    },
+    "classifier_feedforward": {
+      "input_dim": 300,
+      "num_layers": 2,
+      "hidden_dims": [200, 3],
+      "activations": ["relu", "linear"],
+      "dropout": [0.2, 0.0]
+    }
+  },
+  "iterator": {
+    "type": "bucket", 
+    "sorting_keys": [["tweet", "num_tokens"]],
+    "batch_size": 16},
+  "trainer": {
+    "optimizer": {
+      "type": "adam"
+    },
+    "num_epochs": 2,
+    "patience": 10,
+    "cuda_device": 0
+  }
+}

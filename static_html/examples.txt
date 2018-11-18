@@ -1,0 +1,5 @@
+Oh boy... @masongoodman in the house. Warm up the DJ booth @AnnexBar  
+
+You decide to go on vacation without me sleep? Reaaaal nice. #considerate 
+
+python -m allennlp.service.server_simple     --archive-path ~/tmp/models/elmo_lstm3/model.tar.gz     --predictor ironic-predictor     --include-package irony_model     --static-dir static_html

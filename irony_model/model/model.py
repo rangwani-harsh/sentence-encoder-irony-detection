@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 import numpy
 from overrides import overrides
@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from allennlp.common import Params
 from allennlp.common.checks import ConfigurationError
 from allennlp.data import Vocabulary
-from allennlp.modules import FeedForward, Seq2VecEncoder, TextFieldEmbedder
+from allennlp.modules import FeedForward, Seq2VecEncoder, TextFieldEmbedder,Seq2SeqEncoder
 from allennlp.models.model import Model
 from allennlp.nn import InitializerApplicator, RegularizerApplicator
 from allennlp.nn import util
@@ -20,7 +20,8 @@ class IronyTweetClassifier(Model):
     def __init__(self,
                  vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
-                 tweet_encoder: Seq2VecEncoder,
+                 tweet_encoder: Seq2SeqEncoder,
+                 class_weights: torch.LongTensor,
                  classifier_feedforward: FeedForward,
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None) -> None:
@@ -40,28 +41,53 @@ class IronyTweetClassifier(Model):
                                      "respectively.".format(text_field_embedder.get_output_dim(),
                                                             tweet_encoder.get_input_dim()))
         self.loss = torch.nn.CrossEntropyLoss()
+        self.loss_multiclass = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights))
+        self.single_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = 2)
+        self.multiclass_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = 4)
         initializer(self)
+
 
 
     def forward(self,
                 tweet: Dict[str, torch.LongTensor],
-                label: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
+                sentence_embeds: torch.LongTensor,
+                label: torch.LongTensor = None,
+                multiclass_label: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
 
         embedded_tweet = self.text_field_embedder(tweet) # This will take the tweet and initialize into embedding (i.e char and token) (If we keep only our title as tokens in the tweet instance the dict['tokens'] will map to token ids i.e shape(#TODO))
-        tweet_mask = util.get_text_field_mask(tweet)
+        tweet_mask = util.get_text_field_mask(tweet).float()
         encoded_tweet = self.tweet_encoder(embedded_tweet, tweet_mask) # An LSTM or any other seq encode
-        logits = self.classifier_feedforward(encoded_tweet)
-        class_probabilities = F.softmax(logits)
 
-        output_dict = {"class_probabilities": class_probabilities}
+        encoded_tweet_last = encoded_tweet[:, -1, :] #Flatten out (batch_size, time_steps, dimensions) to (batch_size, time_steps * dimensions)
+        encoded_tweet_first = encoded_tweet[:, 0, :]
+        encoded_tweet = torch.cat([encoded_tweet_first, encoded_tweet_last], dim = 1)
+
+        concatenated_representatation = torch.cat([sentence_embeds, encoded_tweet], dim = -1)
+
+        logits = self.classifier_feedforward(concatenated_representatation)
+        singleclass_logits = self.single_task(logits)
+        multiclass_logits = self.multiclass_task(logits)
+        class_probabilities_single = F.softmax(singleclass_logits)
+        class_probabilities_multi  = F.softmax(multiclass_logits)
+
+        output_dict = {"class_probabilities": class_probabilities_single, "class_probablities_multi": class_probabilities_multi}
 
         #To make it run in case of demo
         if label is not None:
-            loss = self.loss(logits, label)
+
+            loss = self.loss(singleclass_logits, label)
             for metric in self.metrics.values():
-                metric(logits, label)
-            self._unlabelled_f1(logits, label)
-            output_dict["loss"] = loss
+                metric(singleclass_logits, label)
+            self._unlabelled_f1(singleclass_logits, label)
+            output_dict["loss"] = loss 
+
+        if multiclass_label is not None:
+            loss_multiclass = self.loss_multiclass(multiclass_logits,multiclass_label)
+
+            if "loss" not in output_dict:
+                output_dict["loss"] = 0
+
+            output_dict["loss"] += loss_multiclass
 
         return output_dict
 

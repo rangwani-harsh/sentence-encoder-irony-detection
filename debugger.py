@@ -4,7 +4,7 @@ import sys
 
 from allennlp.commands import main
 
-config_file = "experiments/averagedencoder.json"
+config_file = "experiments/alternatinglstmmultitask.json"
 
 # Use overrides to train on CPU.
 overrides = json.dumps({"trainer": {"cuda_device": -1}})

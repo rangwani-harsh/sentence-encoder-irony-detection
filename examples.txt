@@ -1,0 +1,8 @@
+You decide to go on vacation without me sleep? Reaaaal nice. #considerate
+
+Always classy, never trashy and just a little sassy.
+
+allennlp train  experiments/averagedencoder.json  -s directory_path_to_save_model --include-package irony_model 
+
+CSV not reading dataset completely
+

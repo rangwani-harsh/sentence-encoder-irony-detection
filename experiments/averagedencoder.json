@@ -42,9 +42,9 @@
     "batch_size": 16},
   "trainer": {
     "optimizer": {
-      "type": "adam"
+      "type": "adamax"
     },
-    "num_epochs": 2,
+    "num_epochs": 3,
     "patience": 10,
     "cuda_device": 0
   }

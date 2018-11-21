@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Iterable
 import json
 import logging
 
@@ -56,11 +56,13 @@ class CsvClassificationReader(DatasetReader):
 
     def __init__(self,
                  pos_input: int,
+                 lazy: bool,
                  pos_gold_label: int,
                  skip_header: bool = True,
                  delimiter: str = ",",
                  tokenizer: Tokenizer = None,
                  token_indexers: Dict[str, TokenIndexer] = None) -> None:
+        super().__init__(lazy)
         self._tokenizer = tokenizer or WordTokenizer()
         self._input = pos_input
         self._gold_label = pos_gold_label
@@ -91,7 +93,7 @@ class CsvClassificationReader(DatasetReader):
         return corpus, y
 
     @overrides
-    def read(self, file_path: list):
+    def _read(self, file_path: list):
         # if `file_path` is a URL, redirect to the cache
         taskA_file_path = file_path['taskA']
         taskB_file_path = file_path['taskB']
@@ -113,12 +115,12 @@ class CsvClassificationReader(DatasetReader):
             input = corpus[i]
             label = (labels[i])
             multiclass_label = multiclass_labels[i]
-            instances.append(self.text_to_instance(input, embedding[i], label, multiclass_label))
+            yield self.text_to_instance(input, embedding[i], label, multiclass_label)
 
-        if not instances:
+        if not corpus:
             raise ConfigurationError("No instances were read from the given filepath {}. "
                                      "Is the path correct?".format(file_path))
-        return instances
+        
 
     @overrides
     def text_to_instance(self,  # type: ignore

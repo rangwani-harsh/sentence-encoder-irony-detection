@@ -19,7 +19,7 @@ lib64/
 parts/
 sdist/
 var/
-wheels/
+wheels/ 
 *.egg-info/
 .installed.cfg
 *.egg
@@ -104,3 +104,8 @@ venv.bak/
 .mypy_cache/
 
 #Mystuff
+elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5
+example.py
+.vscode/settings.json
+
+demo/node_modules/

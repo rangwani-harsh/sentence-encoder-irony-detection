@@ -5,6 +5,7 @@ from overrides import overrides
 import torch
 import torch.nn.functional as F
 
+
 from allennlp.common import Params
 from allennlp.common.checks import ConfigurationError
 from allennlp.data import Vocabulary
@@ -13,6 +14,7 @@ from allennlp.models.model import Model
 from allennlp.nn import InitializerApplicator, RegularizerApplicator
 from allennlp.nn import util
 from allennlp.training.metrics import CategoricalAccuracy, F1Measure
+from allennlp.nn.util import get_final_encoder_states
 
 
 @Model.register("irony_classifier")
@@ -23,13 +25,17 @@ class IronyTweetClassifier(Model):
                  tweet_encoder: Seq2SeqEncoder,
                  class_weights: torch.LongTensor,
                  classifier_feedforward: FeedForward,
+                 attention_encoder: Seq2SeqEncoder = None,
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None) -> None:
+
+        
         super(IronyTweetClassifier, self).__init__(vocab, regularizer)
 
         self.text_field_embedder = text_field_embedder
         self.num_classes = self.vocab.get_vocab_size("labels")
         self.tweet_encoder = tweet_encoder
+        self.attention_layer = attention_encoder
         self.classifier_feedforward = classifier_feedforward
         self.metrics = {
                 "accuracy": CategoricalAccuracy()
@@ -58,11 +64,18 @@ class IronyTweetClassifier(Model):
         tweet_mask = util.get_text_field_mask(tweet).float()
         encoded_tweet = self.tweet_encoder(embedded_tweet, tweet_mask) # An LSTM or any other seq encode
 
-        encoded_tweet_last = encoded_tweet[:, -1, :] #Flatten out (batch_size, time_steps, dimensions) to (batch_size, time_steps * dimensions)
-        encoded_tweet_first = encoded_tweet[:, 0, :]
-        encoded_tweet = torch.cat([encoded_tweet_first, encoded_tweet_last], dim = 1)
+        output_dict = {}
+        
+        if self.attention_layer:
+            final_representation, attentions = self.attention_layer(encoded_tweet, tweet_mask)
+            output_dict["attention"] = attentions
+        else:
+            final_representation = get_final_encoder_states(encoded_tweet, tweet_mask, True)
 
-        concatenated_representatation = torch.cat([sentence_embeds, encoded_tweet], dim = -1)
+        if len(final_representation.shape) == 1: # For predictor work
+            final_representation = final_representation.view(1, -1)
+
+        concatenated_representatation = torch.cat([sentence_embeds, final_representation], dim = -1)
 
         logits = self.classifier_feedforward(concatenated_representatation)
         singleclass_logits = self.single_task(logits)
@@ -70,7 +83,8 @@ class IronyTweetClassifier(Model):
         class_probabilities_single = F.softmax(singleclass_logits)
         class_probabilities_multi  = F.softmax(multiclass_logits)
 
-        output_dict = {"class_probabilities": class_probabilities_single, "class_probablities_multi": class_probabilities_multi}
+        output_dict["class_probabilities"] =  class_probabilities_single
+        output_dict["class_probablities_multi"] =  class_probabilities_multi
 
         #To make it run in case of demo
         if label is not None:

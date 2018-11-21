@@ -2,7 +2,7 @@
     "dataset_reader": {
       "type": "csv_classification_reader",
       "delimiter": "\t",
-  
+      "lazy": true,
       "pos_input": 2,
       "pos_gold_label": 1,
       
@@ -30,7 +30,7 @@
     "evaluate_on_test":true,
     "model": {
       "type": "irony_classifier",
-      "class_weights" : [1.0, 2.0, 3.0, 4.0],
+      "class_weights" : [1.0, 1.0, 1.0, 1.0],
       "text_field_embedder": {
             "elmo": {
                 "type": "elmo_token_embedder",
@@ -44,11 +44,16 @@
         "type": "stacked_bidirectional_lstm",
         "input_size": 1024,
         "hidden_size": 300,
-        "recurrent_dropout_probability": 0.2,
+        "recurrent_dropout_probability": 0.3,
         "num_layers": 3
       },
+      "attention_encoder": {
+        "type": "basic_self_attention",
+        "attention_size": 600 
+      },
+
       "classifier_feedforward": {
-        "input_dim": 3504,
+        "input_dim": 2904,
         "num_layers": 1,
         "hidden_dims": [500],
         "activations": ["relu"],
@@ -58,13 +63,15 @@
     "iterator": {
       "type": "bucket", 
       "sorting_keys": [["tweet", "num_tokens"]],
-      "batch_size":32},
+      "batch_size":16,
+      "max_instances_in_memory": 300
+    },
     "trainer": {
       "optimizer": {
         "type": "adam"
       },
-      "num_epochs": 3,
-      "patience": 1,
+      "num_epochs": 12,
+      "patience": 1,  
       "cuda_device": 0
     }
   }

@@ -40,7 +40,7 @@
       "tweet_encoder": {
         "type": "alternating_lstm",
         "input_size": 1024,
-        "hidden_size": 300,
+        "hidden_size": 600,
         "num_layers" : 3,
         "recurrent_dropout_probability": 0.2
       },

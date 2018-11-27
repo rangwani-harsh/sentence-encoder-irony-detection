@@ -25,6 +25,7 @@ class IronyTweetClassifier(Model):
                  tweet_encoder: Seq2SeqEncoder,
                  class_weights: torch.LongTensor,
                  classifier_feedforward: FeedForward,
+                 classifier_feedforward_deepmoji: FeedForward = None,
                  attention_encoder: Seq2SeqEncoder = None,
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None) -> None:
@@ -37,6 +38,7 @@ class IronyTweetClassifier(Model):
         self.tweet_encoder = tweet_encoder
         self.attention_layer = attention_encoder
         self.classifier_feedforward = classifier_feedforward
+        self.classifier_feedforward_deepmoji = classifier_feedforward_deepmoji
         self.metrics = {
                 "accuracy": CategoricalAccuracy()
         }
@@ -50,6 +52,14 @@ class IronyTweetClassifier(Model):
         self.loss_multiclass = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights))
         self.single_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = 2)
         self.multiclass_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = 4)
+
+        #Define metrics for each of the four classes
+        self.multitask_f1 = []
+        for label in range(0,4):
+            self.multitask_f1.append(F1Measure(positive_label = label))
+        
+        self.i = 0
+        
         initializer(self)
 
 
@@ -57,8 +67,8 @@ class IronyTweetClassifier(Model):
     def forward(self,
                 tweet: Dict[str, torch.LongTensor],
                 sentence_embeds: torch.LongTensor,
-                label: torch.LongTensor = None,
-                multiclass_label: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
+                labels: torch.LongTensor = None,
+                multiclass_labels: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
 
         embedded_tweet = self.text_field_embedder(tweet) # This will take the tweet and initialize into embedding (i.e char and token) (If we keep only our title as tokens in the tweet instance the dict['tokens'] will map to token ids i.e shape(#TODO))
         tweet_mask = util.get_text_field_mask(tweet).float()
@@ -74,12 +84,21 @@ class IronyTweetClassifier(Model):
 
         if len(final_representation.shape) == 1: # For predictor work
             final_representation = final_representation.view(1, -1)
+        
+        if self.classifier_feedforward_deepmoji:
+            sentence_embeds = self.classifier_feedforward_deepmoji(sentence_embeds) #Apply feedforward and downscale representation
 
         concatenated_representatation = torch.cat([sentence_embeds, final_representation], dim = -1)
 
-        logits = self.classifier_feedforward(concatenated_representatation)
-        singleclass_logits = self.single_task(logits)
-        multiclass_logits = self.multiclass_task(logits)
+        combined_representatation = self.classifier_feedforward(concatenated_representatation)
+
+        #Execute with evaluate
+        # numpy.save('xgboost/test_label' + str(self.i) + '.npy', multiclass_labels.numpy())
+        # numpy.save('xgboost/test' + str(self.i) + '.npy', combined_representatation.numpy())
+        # self.i += 1
+
+        singleclass_logits = self.single_task(combined_representatation)
+        multiclass_logits = self.multiclass_task(combined_representatation)
         class_probabilities_single = F.softmax(singleclass_logits)
         class_probabilities_multi  = F.softmax(multiclass_logits)
 
@@ -87,19 +106,23 @@ class IronyTweetClassifier(Model):
         output_dict["class_probablities_multi"] =  class_probabilities_multi
 
         #To make it run in case of demo
-        if label is not None:
+        if labels is not None:
 
-            loss = self.loss(singleclass_logits, label)
+            loss = self.loss(singleclass_logits, labels)
             for metric in self.metrics.values():
-                metric(singleclass_logits, label)
-            self._unlabelled_f1(singleclass_logits, label)
+                metric(singleclass_logits, labels)
+            self._unlabelled_f1(singleclass_logits, labels)
             output_dict["loss"] = loss 
 
-        if multiclass_label is not None:
-            loss_multiclass = self.loss_multiclass(multiclass_logits,multiclass_label)
+        if multiclass_labels is not None:
+            loss_multiclass = self.loss_multiclass(multiclass_logits,multiclass_labels)
+
+            for metric in self.multitask_f1:
+                metric(multiclass_logits, multiclass_labels)
 
             if "loss" not in output_dict:
                 output_dict["loss"] = 0
+            
 
             output_dict["loss"] += loss_multiclass
 
@@ -111,6 +134,21 @@ class IronyTweetClassifier(Model):
         metrics["precision"] = precision
         metrics["recall"] = recall
         metrics["f1"] = f1_measure
+
+        precision_total = 0
+        recall_total = 0
+        f1_total = 0
+
+        for metric in self.multitask_f1:
+            precision, recall, f1_measure = metric.get_metric(reset)
+            precision_total += precision
+            recall_total += recall
+            f1_total += f1_measure
+
+        metrics["precision_taskB"] = precision_total/4
+        metrics["recall_taskB"] = recall_total/4
+        metrics["f1_taskB"] = f1_total/4
+        
         return metrics
 
     def decode(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:

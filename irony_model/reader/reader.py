@@ -99,7 +99,6 @@ class CsvClassificationReader(DatasetReader):
         taskB_file_path = file_path['taskB']
         emb_file_path = file_path['emb']
         
-        instances = []
         
         logger.info("Reading instances from CSV dataset at: %s", file_path)
 
@@ -134,9 +133,10 @@ class CsvClassificationReader(DatasetReader):
         fields['tweet'] = TextField(input_tokens, self._token_indexers)
         fields['sentence_embeds'] = ArrayField(embedding)
         if label:
-            fields['label'] = LabelField(label)
+            fields['labels'] = LabelField(label)
         if multiclass_label:
-            fields['multiclass_label'] = LabelField(multiclass_label)
+            fields['multiclass_labels'] = LabelField(multiclass_label)
+        
         return Instance(fields)
 
     # @classmethod

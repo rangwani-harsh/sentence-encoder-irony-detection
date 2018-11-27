@@ -1,6 +1,6 @@
-# irony-detection-allennlp-basic
+ls# Irony Detection Research Project
 
-This is a basic model for Irony Detection Subtask held at SemEval 2018. The model is based on the allennlp library.
+This is a attention  model for Irony Detection Subtask held at SemEval 2018. The model is based on the allennlp library.
 
 The model is composed of three basic components :-
 * Reader - Responsible for reading the dataset in .txt files in the dataset folder.
@@ -11,7 +11,21 @@ The **experiments** directory contains the config files which contains the hyper
 
 To train the model run:
 
-``` allennlp train  experiments/averagedencoder.json  -s directory_path_to_save_model --include-package irony_model```
+``` allennlp train  experiments/alternatinglstmmultitask.json  -s directory_path_to_save_model --include-package irony_model```
+
+
+##Visualizations
+For running the react based avisulizations of the attention. There are essentially two things that are needed for the setup
+
+1) The Flask server running(Run the following command)
+
+``` python -m allennlp.service.server_simple     --archive-path /tmp/irony_alternate1/model.tar.gz     --predictor ironic-predictor     --include-package irony_model ```
+
+2) Setting up the React Server for nodejs visualization(Ensure that node js and npm are installed on the system. More details
+)
+* ```npm install``` (Only once)
+* ```npm start```
+
 
 Requirements:
 * Allennlp==0.7.0
@@ -19,4 +33,5 @@ Requirements:
 TODO
 * Add New Models
 * Update Documentation and Readme
+
 

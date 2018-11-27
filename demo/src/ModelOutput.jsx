@@ -15,15 +15,17 @@ class ModelOutput extends React.Component {
     var class_probabilities = outputs["class_probabilities"]
     
     var string_result_field = "Non-Ironic";
+    var confidence = (1 - class_probabilities[1])*100;
 
     if (class_probabilities[1] >= 0.5) {
       string_result_field = "Ironic";
+      confidence = class_probabilities[1] * 100;
     }
 
     // This is a 1D attention array, which we need to make into a 2D matrix to use with our heat
     // map component.
     var attention_data = outputs["attention"].map(x => [x]);
-    
+    console.log(attention_data)
     // This is a 2D attention matrix.
     //var matrix_attention_data = outputs['matrix_attention_data'];
     // Labels for our 2D attention matrix, and the rows in our 1D attention array.
@@ -46,7 +48,7 @@ class ModelOutput extends React.Component {
         
         <div className="form__field">
           <label>Model Prediction</label>
-          <div className="model__content__summary" al>{ string_result_field }</div>
+          <div className="model__content__summary" al>{ string_result_field } <br></br> With Confidence {confidence.toFixed(2) }%</div>
         </div>
 
         

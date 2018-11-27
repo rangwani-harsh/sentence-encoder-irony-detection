@@ -1,7 +1,16 @@
 from torch import nn, torch
 from torch.autograd import Variable
 
+from typing import List
+from overrides import overrides
+
 from allennlp.modules import Seq2SeqEncoder
+from allennlp.data.tokenizers.word_splitter import WordSplitter
+from allennlp.data.tokenizers.token import Token
+
+from ekphrasis.classes.preprocessor import TextPreProcessor
+from ekphrasis.classes.tokenizer import SocialTokenizer
+from ekphrasis.dicts.emoticons import emoticons
 
 
 @Seq2SeqEncoder.register('basic_self_attention')
@@ -9,6 +18,7 @@ class SelfAttention(Seq2SeqEncoder):
     """A simple Seq2Seq encoder that calculates attention over
     all the outputs of time step t and gives a final representation.
     It's just the weighted output of each time step as the final representation.
+
     Input : [batch_size, num_rows, hidden_dim]
     Output : [batch_size, hidden_dim]
     """
@@ -43,10 +53,10 @@ class SelfAttention(Seq2SeqEncoder):
         self.softmax = nn.Softmax(dim=-1)
 
 
-    def forward(self, inputs, mask):
 
         ##################################################################
         # STEP 1 - perform dot product
+    def forward(self, inputs, mask):
         # of the attention vector and each hidden state
         ##################################################################
 
@@ -77,3 +87,56 @@ class SelfAttention(Seq2SeqEncoder):
         representations = weighted.sum(1).squeeze()
 
         return representations, scores
+
+
+@WordSplitter.register('twitter')
+class TwitterWordSplitter(WordSplitter):
+    """
+        Word splitter based on ekphrasis for
+        downstream tasks on tweets.
+        Uses ekhphrasis module for the purpose.
+    """
+    def __init__(self,
+                 normalize = ['url', 'email', 'percent', 'money', 
+                    'phone', 'user','time','date', 'number'],
+                 annotate = [],
+                 all_caps_tag = "wrap",
+                 fix_text = True,
+                 segmenter = "twitter_2018",
+                 corrector="twitter_2018",
+                 unpack_hashtags=True,
+                 unpack_contractions=True,
+                 spell_correct_elong=False,
+                 emoticon_unpack = True,
+                 lowercase = False
+                ):
+
+            self.emoticons = emoticon_unpack
+            if self.emoticons:
+                emoticon_list = [emoticons]
+            else:
+                emoticon_list = []
+            
+            self.tweet_splitter = TextPreProcessor(
+                normalize= normalize,
+                annotate=annotate,
+                all_caps_tag=all_caps_tag,
+                fix_text=fix_text,
+                segmenter=segmenter,
+                corrector=corrector,
+                unpack_hashtags=unpack_hashtags,
+                unpack_contractions=unpack_contractions,
+                spell_correct_elong=False,
+                tokenizer=SocialTokenizer(lowercase=lowercase).tokenize,
+                dicts=emoticon_list
+            )
+
+    @overrides
+    def split_words(self, sentence: str) -> List[Token]:
+        # This works because our Token class matches spacy's.
+        tokens = [] # As allennlp requires the datatype Tokens
+        for text in self.tweet_splitter.pre_process_doc(sentence):
+                tokens.append(Token(text))
+        return tokens
+
+                

@@ -17,9 +17,10 @@ const examples = [
     tweet_index: 15
   },
   {
-    tweet_input: "long text input for example 3",
-    tweet_index: 2
+    tweet_input: "Decide that you want it more than you are afraid of it. -Bill Cosby|",
+    tweet_index: 67
   }
+  
 ];
 
 // TODO: This determines what text shows up in the select box for each example.  The input to

@@ -3,9 +3,9 @@
 This is a attention  model for Irony Detection Subtask held at SemEval 2018. The model is based on the allennlp library.
 
 The model is composed of three basic components :-
-* Reader - Responsible for reading the dataset in .txt files in the dataset folder.
-* Model - The model module defines the neural net we want to use for the model. It is currently a sequence to sequence encoder whoose output is fed to a feed forward network for classification.
-* Predictor - This part is required for running the demo and evaluate procedure.
+* **Reader** - Responsible for reading the dataset in .txt files in the dataset folder.
+* **Model** - The model module defines the neural net we want to use for the model. It is currently a sequence to sequence encoder whoose output is fed to a feed forward network for classification.
+* **Predictor** - This part is required for running the demo and evaluate procedure.
 
 The **experiments** directory contains the config files which contains the hyperparameters and the model configuration.
 
@@ -25,14 +25,19 @@ For running the react based avisulizations of the attention. There are essential
 * ```npm install``` (Only once)
 * ```npm start```
 
+### Examples
+![Overall Model](model.png)
+### Attention
+![Attention](attention.png)
 
-Requirements:
+
+## Requirements:
 * Allennlp==0.7.0
 * React js
 * Node-js
 * npm
 
-TODO
+## TODO
 * Add New Models
 * Update Documentation and Readme
 

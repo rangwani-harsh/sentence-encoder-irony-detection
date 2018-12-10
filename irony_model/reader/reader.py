@@ -20,30 +20,12 @@ from allennlp.data.tokenizers import Tokenizer, WordTokenizer
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
-class FieldPreparator():
-    def __init__(self,
-                 field: str = None,
-                 mapping: Dict = {}):
-        self._field = field
-        self._mapping = mapping
-
-    def transform(self, field, value) -> str:
-        if field == self._field:
-            return self._mapping.get(value, default=value)
-        else:
-            return value
-
-    @classmethod
-    def from_params(cls, params: Params) -> 'FieldPreparator':
-        field = params.pop('field', None)
-        mapping = params.pop('mapping', {}).as_dict()
-        return FieldPreparator(field=field, mapping=mapping)
-
-@DatasetReader.register('emoticon-dataset-reader')
-class EmoticonPredictionReader(DatasetReader):
+@DatasetReader.register("irony_classification_reader")
+class IronyClassificationReader(DatasetReader):
     """
-    Reads two files files name.labels, name.text
-    Format is that both have input per line
+    Reads two files of Dataset. One having binary labels and the other having multiclass labels.
+    One other parameter is the path of the pretrained deepmoji embedding file which contains
+    deepmoji embeddings for a sentence.
 
     Parameters
     ----------
@@ -54,82 +36,11 @@ class EmoticonPredictionReader(DatasetReader):
     """
 
     def __init__(self,
-                lazy:bool,
-                tokenizer: Tokenizer = None,
-                token_indexers: Dict[str, TokenIndexer] = None) -> None:
-        
-        super().__init__(lazy)
-        self.tokenizer  = tokenizer or WordTokenizer()
-        self.token_indexers  = token_indexers or{'tokens': SingleIdTokenIndexer()}
-
-    @overrides
-    def _read(self, file_path: list):
-        # if `file_path` is a URL, redirect to the cache
-        text_file_path = file_path['text']
-        label_file_path = file_path['labels']
-        emb_file_path = file_path['emb']
-    
-        with open(text_file_path, "r") as text_file, open(label_file_path, "r") as label_file, open(emb_file_path, "r") as emb_file: 
-            
-            logger.info("Reading instances from lines in file at: %s", file_path)
-            for tweet , label, emb in zip(text_file, label_file, emb_file): #Using iterators as the files may be very large
-
-                tweet = tweet.strip("\n")
-                emb = np.array(emb.strip("\n").split("\t"))
-                label = label.strip("\n")
-                if not tweet:
-                    continue
-                
-                yield self.text_to_instance(tweet, emb, label)
-
-    @overrides
-    def text_to_instance(self,  # type: ignore
-                         input: str,
-                         embedding : np.array,
-                         label: str = None,
-                         multiclass_label: str = None) -> Instance:
-        # pylint: disable=arguments-differ
-        fields: Dict[str, Field] = {}
-        input_tokens = self._tokenizer.tokenize(input)
-        fields['tweet'] = TextField(input_tokens, self._token_indexers)
-        fields['sentence_embeds'] = ArrayField(embedding)
-        if label:
-            fields['labels'] = LabelField(label)
-        if multiclass_label:
-            fields['multiclass_labels'] = LabelField(multiclass_label)
-        
-        return Instance(fields)
-
-
-
-@DatasetReader.register("csv_classification_reader")
-class CsvClassificationReader(DatasetReader):
-    """
-    Reads a file from a classification dataset.  This data is
-    formatted as jsonl, one json-formatted instance per line.  The positions i  n the CSV file can defined in
-    the JSON definition.
-    Parameters
-    ----------
-    tokenizer : ``Tokenizer``, optional (default=``WordTokenizer()``)
-         See :class:`Tokenizer`.
-    token_indexers : ``Dict[str, TokenIndexer]``, optional (default=``{"tokens": SingleIdTokenIndexer()}``)
-        See :class:`TokenIndexer`.
-    """
-
-    def __init__(self,
-                 pos_input: int,
                  lazy: bool,
-                 pos_gold_label: int,
-                 skip_header: bool = True,
-                 delimiter: str = ",",
                  tokenizer: Tokenizer = None,
                  token_indexers: Dict[str, TokenIndexer] = None) -> None:
         super().__init__(lazy)
         self._tokenizer = tokenizer or WordTokenizer()
-        self._input = pos_input
-        self._gold_label = pos_gold_label
-        self._skip_header = skip_header
-        self._delimiter = delimiter
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
 
     
@@ -195,24 +106,8 @@ class CsvClassificationReader(DatasetReader):
         fields['tweet'] = TextField(input_tokens, self._token_indexers)
         fields['sentence_embeds'] = ArrayField(embedding)
         if label:
-            fields['labels'] = LabelField(label)
+            fields['labels'] = LabelField(label,label_namespace = "binary_labels")
         if multiclass_label:
-            fields['multiclass_labels'] = LabelField(multiclass_label)
+            fields['multiclass_labels'] = LabelField(multiclass_label,label_namespace = "multiclass_labels")
         
         return Instance(fields)
-
-    # @classmethod
-    # def from_params(cls, params: Params) -> 'CsvClassificationReader':
-    #     tokenizer = Tokenizer.from_params(params.pop('tokenizer', {}))
-    #     input = params.pop('pos_input', None)
-    #     gold_label = params.pop('pos_gold_label', None)
-    #     skip_header = params.pop('skip_header', True)
-    #     delimiter = params.pop('delimiter', None)
-    #     token_indexers = TokenIndexer.dict_from_params(params.pop('token_indexers', None))
-    #     params.assert_empty(cls.__name__)
-    #     return CsvClassificationReader(tokenizer=tokenizer,
-    #                                    token_indexers=token_indexers,
-    #                                    skip_header=skip_header,
-    #                                    delimiter=delimiter,
-    #                                    input=input,
-    #                                    gold_label=gold_label)

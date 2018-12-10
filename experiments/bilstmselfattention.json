@@ -1,10 +1,7 @@
 {
-    "dataset_reader": {
-        "type": "csv_classification_reader",
-        "delimiter": "\t",
+   "dataset_reader": {
+        "type": "irony_classification_reader",
         "lazy": true,
-        "pos_gold_label": 1,
-        "pos_input": 2,
         "token_indexers": {
             "elmo": {
                 "type": "elmo_characters"
@@ -85,11 +82,11 @@
     },
     "trainer": {
         "cuda_device": 0,
-        "num_epochs": 20,
+        "num_epochs": 12,
         "optimizer": {
             "type": "adam"
         },
-        "patience": 14,
+        "patience": 12,
         "num_serialized_models_to_keep": 3
     },
     "evaluate_on_test": true

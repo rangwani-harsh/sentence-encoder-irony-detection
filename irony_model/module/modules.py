@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from typing import List
 from overrides import overrides
 
-from allennlp.modules import Seq2SeqEncoder
+from allennlp.modules import Seq2SeqEncoder, Seq2VecEncoder
 from allennlp.data.tokenizers.word_splitter import WordSplitter
 from allennlp.data.tokenizers.token import Token
 
@@ -14,8 +14,8 @@ from ekphrasis.classes.tokenizer import SocialTokenizer
 from ekphrasis.dicts.emoticons import emoticons
 
 
-@Seq2SeqEncoder.register('basic_self_attention')
-class SelfAttention(Seq2SeqEncoder):
+@Seq2VecEncoder.register('basic_self_attention')
+class SelfAttention(Seq2VecEncoder):
     """A simple Seq2Seq encoder that calculates attention over
     all the outputs of time step t and gives a final representation.
     It's just the weighted output of each time step as the final representation.
@@ -139,8 +139,8 @@ class TwitterWordSplitter(WordSplitter):
                 tokens.append(Token(text))
         return tokens
 
-@Seq2SeqEncoder.register('structured-self-attention')
-class StructuredSelfAttention(Seq2SeqEncoder):
+@Seq2VecEncoder.register('structured-self-attention')
+class StructuredSelfAttention(Seq2VecEncoder):
     """ A seq2seq encoder which calculates the sentence representation
     using the output states of an LSTM. This implements the paper arXiv:1703.03130. 
 

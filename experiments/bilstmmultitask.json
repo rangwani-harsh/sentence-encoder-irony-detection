@@ -1,20 +1,17 @@
 {
   "dataset_reader": {
-      "type": "csv_classification_reader",
-      "delimiter": "\t",
-      "lazy": true,
-      "pos_gold_label": 1,
-      "pos_input": 2,
-      "token_indexers": {
-          "elmo": {
-              "type": "elmo_characters"
-          }
-      },
-      "tokenizer": {
-          "word_splitter": {
-              "type": "twitter"
-          }
-      }
+        "type": "irony_classification_reader",
+        "lazy": true,
+        "token_indexers": {
+            "elmo": {
+                "type": "elmo_characters"
+            }
+        },
+        "tokenizer": {
+            "word_splitter": {
+                "type": "twitter"
+            }
+        }
   },
   "iterator": {
       "type": "bucket",
@@ -81,10 +78,9 @@
   },
   "trainer": {
       "cuda_device": 0,
-      "num_epochs": 14,
+      "num_epochs": 12,
       "optimizer": {
-          "type": "adam",
-          "lr": 0.01
+          "type": "adam"
       },
       "patience": 1
   },

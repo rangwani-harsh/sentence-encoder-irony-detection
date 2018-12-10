@@ -23,10 +23,10 @@ class IronyTweetClassifier(Model):
                  vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
                  tweet_encoder: Seq2SeqEncoder,
-                 class_weights: torch.LongTensor,
                  classifier_feedforward: FeedForward,
+                 class_weights: torch.LongTensor = None,
                  classifier_feedforward_deepmoji: FeedForward = None,
-                 attention_encoder: Seq2SeqEncoder = None,
+                 attention_encoder: Seq2VecEncoder = None,
                  attention_regularization: bool = False,
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None) -> None:
@@ -35,7 +35,7 @@ class IronyTweetClassifier(Model):
         super(IronyTweetClassifier, self).__init__(vocab, regularizer)
 
         self.text_field_embedder = text_field_embedder
-        self.num_classes = self.vocab.get_vocab_size("labels")
+        self.num_classes = self.vocab.get_vocab_size("multiclass_labels")
         self.tweet_encoder = tweet_encoder
         self.attention_layer = attention_encoder
         self.classifier_feedforward = classifier_feedforward
@@ -53,16 +53,19 @@ class IronyTweetClassifier(Model):
         self.attention_regularization = attention_regularization
         #Loss function
         self.loss = torch.nn.CrossEntropyLoss()
-        self.loss_multiclass = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights))
-        self.single_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = 2)
-        self.multiclass_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = 4)
+        if class_weights:
+            self.loss_multiclass = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights))
+        else:
+            self.loss_multiclass = torch.nn.CrossEntropyLoss()
+        self.single_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = self.vocab.get_vocab_size("binary_labels"))
+        self.multiclass_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = self.vocab.get_vocab_size("multiclass_labels"))
 
         #Define metrics for each of the four classes
         self.multitask_f1 = []
-        for label in range(0,4):
+        for label in range(0,self.vocab.get_vocab_size("multiclass_labels")):
             self.multitask_f1.append(F1Measure(positive_label = label))
         
-        self.i = 0
+        #self.i = 0
         
         initializer(self)
 
@@ -148,9 +151,9 @@ class IronyTweetClassifier(Model):
             recall_total += recall
             f1_total += f1_measure
 
-        metrics["precision_taskB"] = precision_total/4
-        metrics["recall_taskB"] = recall_total/4
-        metrics["f1_taskB"] = f1_total/4
+        metrics["precision_taskB"] = precision_total/self.num_classes
+        metrics["recall_taskB"] = recall_total/self.num_classes
+        metrics["f1_taskB"] = f1_total/self.num_classes
         
         return metrics
 

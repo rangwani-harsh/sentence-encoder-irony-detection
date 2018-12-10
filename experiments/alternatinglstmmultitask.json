@@ -83,7 +83,8 @@
       "cuda_device": 0,
       "num_epochs": 14,
       "optimizer": {
-          "type": "adam"
+          "type": "adam",
+          "lr": 0.01
       },
       "patience": 1
   },

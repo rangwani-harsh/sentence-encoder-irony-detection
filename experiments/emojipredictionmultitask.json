@@ -1,0 +1,67 @@
+{
+    "dataset_reader": {
+      "type": "csv_classification_reader",
+      "delimiter": "\t",
+  
+      "pos_input": 2,
+      "pos_gold_label": 1,
+      
+      "tokenizer": {
+        "word_splitter": {
+          "language": "en"
+        }
+      },
+      "token_indexers": {
+        "elmo": {
+          "type": "elmo_characters"
+        }
+      }
+    },
+    "train_data_path": {
+        "text" : "dataset/SemEval2018-T4-train-taskA_emoji.txt",
+        "emb" : "dataset/X_deepemoji.npy"
+    },
+    "test_data_path": {
+      "text" : "dataset/SemEval2018-T3_gold_test_taskA_emoji.txt",
+      "emb" : "dataset/encoding_test.npy"
+    },
+    "evaluate_on_test":true,
+    "model": {
+      "type": "irony_classifier",
+      "text_field_embedder": {
+            "elmo": {
+                "type": "elmo_token_embedder",
+                "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
+                "weight_file": "/home/harsh/NLP tools/irony-detection-allennlp-basic/elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5",
+                "do_layer_norm": false,
+                "dropout": 0.5
+            }
+      },
+      "tweet_encoder": {
+        "type": "alternating_lstm",
+        "input_size": 1024,
+        "hidden_size": 600,
+        "num_layers" : 3,
+        "recurrent_dropout_probability": 0.2
+      },
+      "classifier_feedforward": {
+        "input_dim": 2904,
+        "num_layers": 2,
+        "hidden_dims": [100, 2],
+        "activations": ["relu", "linear"],
+        "dropout": [0.2, 0.0]
+      }
+    },
+    "iterator": {
+      "type": "bucket", 
+      "sorting_keys": [["tweet", "num_tokens"]],
+      "batch_size": 16},
+    "trainer": {
+      "optimizer": {
+        "type": "adam"
+      },
+      "num_epochs": 3,
+      "patience": 1,
+      "cuda_device": 0
+    }
+  }

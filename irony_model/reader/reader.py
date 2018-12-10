@@ -17,6 +17,7 @@ from allennlp.data.instance import Instance
 from allennlp.data.token_indexers import SingleIdTokenIndexer, TokenIndexer
 from allennlp.data.tokenizers import Tokenizer, WordTokenizer
 
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 class FieldPreparator():
@@ -38,13 +39,74 @@ class FieldPreparator():
         mapping = params.pop('mapping', {}).as_dict()
         return FieldPreparator(field=field, mapping=mapping)
 
+@DatasetReader.register('emoticon-dataset-reader')
+class EmoticonPredictionReader(DatasetReader):
+    """
+    Reads two files files name.labels, name.text
+    Format is that both have input per line
+
+    Parameters
+    ----------
+    tokenizer : ``Tokenizer``, optional (default=``WordTokenizer()``)
+         See :class:`Tokenizer`.
+    token_indexers : ``Dict[str, TokenIndexer]``, optional (default=``{"tokens": SingleIdTokenIndexer()}``)
+        See :class:`TokenIndexer`.
+    """
+
+    def __init__(self,
+                lazy:bool,
+                tokenizer: Tokenizer = None,
+                token_indexers: Dict[str, TokenIndexer] = None) -> None:
+        
+        super().__init__(lazy)
+        self.tokenizer  = tokenizer or WordTokenizer()
+        self.token_indexers  = token_indexers or{'tokens': SingleIdTokenIndexer()}
+
+    @overrides
+    def _read(self, file_path: list):
+        # if `file_path` is a URL, redirect to the cache
+        text_file_path = file_path['text']
+        label_file_path = file_path['labels']
+        emb_file_path = file_path['emb']
+    
+        with open(text_file_path, "r") as text_file, open(label_file_path, "r") as label_file, open(emb_file_path, "r") as emb_file: 
+            
+            logger.info("Reading instances from lines in file at: %s", file_path)
+            for tweet , label, emb in zip(text_file, label_file, emb_file): #Using iterators as the files may be very large
+
+                tweet = tweet.strip("\n")
+                emb = np.array(emb.strip("\n").split("\t"))
+                label = label.strip("\n")
+                if not tweet:
+                    continue
+                
+                yield self.text_to_instance(tweet, emb, label)
+
+    @overrides
+    def text_to_instance(self,  # type: ignore
+                         input: str,
+                         embedding : np.array,
+                         label: str = None,
+                         multiclass_label: str = None) -> Instance:
+        # pylint: disable=arguments-differ
+        fields: Dict[str, Field] = {}
+        input_tokens = self._tokenizer.tokenize(input)
+        fields['tweet'] = TextField(input_tokens, self._token_indexers)
+        fields['sentence_embeds'] = ArrayField(embedding)
+        if label:
+            fields['labels'] = LabelField(label)
+        if multiclass_label:
+            fields['multiclass_labels'] = LabelField(multiclass_label)
+        
+        return Instance(fields)
+
 
 
 @DatasetReader.register("csv_classification_reader")
 class CsvClassificationReader(DatasetReader):
     """
     Reads a file from a classification dataset.  This data is
-    formatted as jsonl, one json-formatted instance per line.  The positions in the CSV file can defined in
+    formatted as jsonl, one json-formatted instance per line.  The positions i  n the CSV file can defined in
     the JSON definition.
     Parameters
     ----------

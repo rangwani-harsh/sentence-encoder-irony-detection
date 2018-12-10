@@ -27,6 +27,7 @@ class IronyTweetClassifier(Model):
                  classifier_feedforward: FeedForward,
                  classifier_feedforward_deepmoji: FeedForward = None,
                  attention_encoder: Seq2SeqEncoder = None,
+                 attention_regularization: bool = False,
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None) -> None:
 
@@ -43,11 +44,14 @@ class IronyTweetClassifier(Model):
                 "accuracy": CategoricalAccuracy()
         }
         self._unlabelled_f1 = F1Measure(positive_label=1)
+
         if text_field_embedder.get_output_dim() != tweet_encoder.get_input_dim():
             raise ConfigurationError("The output dimension of the text_field_embedder must match the "
                                      "input dimension of the title_encoder. Found {} and {}, "
                                      "respectively.".format(text_field_embedder.get_output_dim(),
                                                             tweet_encoder.get_input_dim()))
+        self.attention_regularization = attention_regularization
+        #Loss function
         self.loss = torch.nn.CrossEntropyLoss()
         self.loss_multiclass = torch.nn.CrossEntropyLoss(weight=torch.Tensor(class_weights))
         self.single_task = torch.nn.Linear(in_features= classifier_feedforward.get_output_dim(), out_features = 2)
@@ -75,12 +79,15 @@ class IronyTweetClassifier(Model):
         encoded_tweet = self.tweet_encoder(embedded_tweet, tweet_mask) # An LSTM or any other seq encode
 
         output_dict = {}
-        
+        output_dict["loss"] = 0
+
         if self.attention_layer:
-            final_representation, attentions = self.attention_layer(encoded_tweet, tweet_mask)
+            final_representation, attentions, penalty = self.attention_layer(encoded_tweet, tweet_mask)
             output_dict["attention"] = attentions
+            output_dict["loss"] += penalty
         else:
             final_representation = get_final_encoder_states(encoded_tweet, tweet_mask, True)
+    
 
         if len(final_representation.shape) == 1: # For predictor work
             final_representation = final_representation.view(1, -1)
@@ -119,10 +126,6 @@ class IronyTweetClassifier(Model):
 
             for metric in self.multitask_f1:
                 metric(multiclass_logits, multiclass_labels)
-
-            if "loss" not in output_dict:
-                output_dict["loss"] = 0
-            
 
             output_dict["loss"] += loss_multiclass
 

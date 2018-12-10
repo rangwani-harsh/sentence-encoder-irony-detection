@@ -1,0 +1,96 @@
+{
+    "dataset_reader": {
+        "type": "csv_classification_reader",
+        "delimiter": "\t",
+        "lazy": true,
+        "pos_gold_label": 1,
+        "pos_input": 2,
+        "token_indexers": {
+            "elmo": {
+                "type": "elmo_characters"
+            }
+        },
+        "tokenizer": {
+            "word_splitter": {
+                "type": "twitter"
+            }
+        }
+    },
+    "iterator": {
+        "type": "bucket",
+        "batch_size": 16,
+        "max_instances_in_memory": 300,
+        "sorting_keys": [
+            [
+                "tweet",
+                "num_tokens"
+            ]
+        ]
+    },
+    "model": {
+        "type": "irony_classifier",
+        "attention_encoder": {
+            "type": "structured-self-attention",
+            "attention_size": 300,
+            "attention_heads": 5,
+            "hidden_dims":600,
+            "regularization" : true,
+            "penalty_coeffecient" : 0.3
+        },
+        "class_weights": [
+            1,
+            1,
+            1,
+            1
+        ],
+        "classifier_feedforward": {
+            "activations": [
+                "relu"
+            ],
+            "dropout": [
+                0.2
+            ],
+            "hidden_dims": [
+                200
+            ],
+            "input_dim": 2904,
+            "num_layers": 1
+        },
+        "text_field_embedder": {
+            "elmo": {
+                "type": "elmo_token_embedder",
+                "do_layer_norm": false,
+                "dropout": 0.5,
+                "options_file": "https://s3-us-west-2.amazonaws.com/allennlp/models/elmo/2x4096_512_2048cnn_2xhighway/elmo_2x4096_512_2048cnn_2xhighway_options.json",
+                "weight_file": "/home/harsh/NLP tools/irony-detection-allennlp-basic/elmo/elmo_2x4096_512_2048cnn_2xhighway_weights.hdf5"
+            }
+        },
+        "tweet_encoder": {
+            "type": "stacked_bidirectional_lstm",
+            "hidden_size": 300,
+            "input_size": 1024,
+            "num_layers": 3,
+            "recurrent_dropout_probability": 0.2
+        }
+    },
+    "train_data_path": {
+        "emb": "dataset/X_deepemoji.npy",
+        "taskA": "dataset/SemEval2018-T4-train-taskA_emoji.txt",
+        "taskB": "dataset/SemEval2018-T4-train-taskB_emoji.txt"
+    },
+    "test_data_path": {
+        "emb": "dataset/encoding_test.npy",
+        "taskA": "dataset/SemEval2018-T3_gold_test_taskA_emoji.txt",
+        "taskB": "dataset/SemEval2018-T3_gold_test_taskB_emoji.txt"
+    },
+    "trainer": {
+        "cuda_device": 0,
+        "num_epochs": 20,
+        "optimizer": {
+            "type": "adam"
+        },
+        "patience": 14,
+        "num_serialized_models_to_keep": 3
+    },
+    "evaluate_on_test": true
+  }

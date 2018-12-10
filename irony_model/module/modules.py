@@ -1,5 +1,6 @@
 from torch import nn, torch
 from torch.autograd import Variable
+import torch.nn.functional as F
 
 from typing import List
 from overrides import overrides
@@ -53,7 +54,6 @@ class SelfAttention(Seq2SeqEncoder):
         self.softmax = nn.Softmax(dim=-1)
 
 
-
         ##################################################################
         # STEP 1 - perform dot product
     def forward(self, inputs, mask):
@@ -64,7 +64,7 @@ class SelfAttention(Seq2SeqEncoder):
         # scores is a 2D Tensor: batch, len
         scores = self.attention(inputs).squeeze()
         scores = self.softmax(scores)
-
+        loss = 0 # In case of some regularization penality required 
         ##################################################################
         # Step 2 - Masking
         ##################################################################
@@ -86,7 +86,7 @@ class SelfAttention(Seq2SeqEncoder):
         # sum the hidden states
         representations = weighted.sum(1).squeeze()
 
-        return representations, scores
+        return representations, scores, loss
 
 
 @WordSplitter.register('twitter')
@@ -107,7 +107,7 @@ class TwitterWordSplitter(WordSplitter):
                  unpack_hashtags=True,
                  unpack_contractions=True,
                  spell_correct_elong=False,
-                 emoticon_unpack = True,
+                 emoticon_unpack = False,
                  lowercase = False
                 ):
 
@@ -139,4 +139,117 @@ class TwitterWordSplitter(WordSplitter):
                 tokens.append(Token(text))
         return tokens
 
-                
+@Seq2SeqEncoder.register('structured-self-attention')
+class StructuredSelfAttention(Seq2SeqEncoder):
+    """ A seq2seq encoder which calculates the sentence representation
+    using the output states of an LSTM. This implements the paper arXiv:1703.03130. 
+
+    Input : [batch_size, num_rows, hidden_dim]
+    Output:  [batch_size, hidden_dim] # Final representation of the sentence
+    """
+
+    def __init__(self, 
+                attention_size, #Attention layer size
+                attention_heads, #Number of attention heads
+                hidden_dims, # Hidden Dimension of the LSTM encoder
+                regularization = False, #Forbenius Norm Based Regularization method
+                penalty_coeffecient = 0.01 #Coeffoecient of regularization
+                ):
+            """
+            Initializes parameters of the model
+
+            attention_size : {int} The attention layer size i.e. d_a in paper
+            attention_heads : {int} The number of different attention heads in sentence i.e. r in paper
+            hidden_dims : {int} The hidden dimensions of the lstm upon which the attention operates
+            """
+            super(StructuredSelfAttention, self).__init__()
+            self.attention_heads = attention_heads
+            self.attention_size = attention_size
+            self.regularization = regularization
+            self.penalty_coeffecient = penalty_coeffecient
+            self.linear_first = torch.nn.Linear(hidden_dims, attention_size, bias = False) 
+            self.linear_second = torch.nn.Linear(attention_size, attention_heads, bias = False)
+            self.init_weights()
+
+    def init_weights( self ):
+        initrange = 0.1
+        self.linear_first.weight.data.uniform_( -initrange, initrange )
+        self.linear_second.weight.data.uniform_( -initrange, initrange )
+
+    def softmax(self,input, axis=1):
+        """
+        Softmax applied to axis=n
+ 
+        Args:
+           input: {Tensor,Variable} input on which softmax is to be applied
+           axis : {int} axis on which softmax is to be applied
+ 
+        Returns:
+            softmaxed tensors
+ 
+        #TODO Rewrite the function again if time permits   
+        """
+ 
+        input_size = input.size()
+        trans_input = input.transpose(axis, len(input_size)-1)
+        trans_size = trans_input.size()
+        input_2d = trans_input.contiguous().view(-1, trans_size[-1])
+        soft_max_2d = F.softmax(input_2d)
+        soft_max_nd = soft_max_2d.view(*trans_size)
+        return soft_max_nd.transpose(axis, len(input_size)-1)
+
+    def forward(self, inputs, mask):
+
+        """Gives out the attention, sentence representation and the regularization loss 
+           Args:
+            input: {torch.Tensor} input of the underlying seq2seq encoder
+            mask:  {torch.tensor} contains mask of length of sentence.
+           Returns:
+            sentence_representation: {Torch.tensor}
+            loss: {Torch.tensor} Regularization Penalty
+            attention: {Torch.tensor} Attention over the different parts of the sentence
+        """
+        loss = 0
+        transformed_inputs = torch.tanh(self.linear_first(inputs)) # n * d_a
+        transformed_inputs = self.linear_second(transformed_inputs) # n * r
+
+
+        attention = self.softmax(transformed_inputs, axis = 1)*mask.unsqueeze(2) # n*r
+        attention = attention.transpose(1,2) # n * r => r*n
+        _sums = torch.sum(attention, dim=2, keepdim=True) #Apply mask and then normalize
+        attention = attention.div(_sums)
+
+        batch_size = inputs.shape[0] #As the batch_size if first dimension #TODO Find a better way
+
+        if self.regularization:
+            attentionT = attention.transpose(1, 2)
+            identity = torch.eye(attention.size(1))
+            identity = Variable(identity.unsqueeze(0).expand(batch_size,attention.size(1),attention.size(1)).cuda())
+            penal = self.l2_matrix_norm(attention@attentionT - identity)
+            loss += (self.penalty_coeffecient * penal/batch_size).type(torch.FloatTensor)
+
+        sentence_embeddings = attention@inputs #Matrix Multiplication r*n*n*hidden_dim => r*hidden_dims
+        avg_sentence_embeddings = (torch.sum(sentence_embeddings,1)/self.attention_heads).squeeze() #r*hidden_dims => hidden_dims 
+
+        #Average attention too (Makes it easy for visulization)
+        attention  = (torch.sum(attention, 1)/self.attention_heads).squeeze()
+
+        return avg_sentence_embeddings, attention, loss
+
+
+
+    #L2 Regularized Norm
+    def l2_matrix_norm(self,m):
+        """
+        Frobenius norm calculation
+ 
+        Args:
+           m: {Variable} ||AAT - I||
+ 
+        Returns:
+            regularized value
+ 
+       
+        """
+        return torch.sum(torch.sum(torch.sum(m**2,1),1)**0.5).type(torch.DoubleTensor)
+

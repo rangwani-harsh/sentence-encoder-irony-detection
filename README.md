@@ -1,6 +1,6 @@
 # Irony Detection Research Project
 
-This is a attention  model for Irony Detection Subtask held at SemEval 2018. The model is based on the allennlp library.
+This is a attention  model for Irony Detection Subtask Task 3 held at SemEval 2018. The model is based on the allennlp library.
 
 The model is composed of three basic components :-
 * **Reader** - Responsible for reading the dataset in .txt files in the dataset folder.
@@ -30,6 +30,22 @@ For running the react based avisulizations of the attention. There are essential
 ### Attention
 ![Attention](attention.png)
 
+## Model Description
+The code implements two different attention mechanisms for encoding the sentence representations. 
+
+1) Basic attention layer [Paper](https://arxiv.org/abs/1804.06659). Best Performance of model 69.19% F1 score.
+
+2) A Structured Self-attentive Sentence Embedding by Lin et.al. [Paper](https://arxiv.org/abs/1703.03130).Best Performance of model 69.30% F1 score.
+
+## What's new in this Implementation
+1) Introduces masking in the Structured Self-attentive Sentence Embedding which is present in irony_model/modules/module.py.
+
+2) Example of how to implement multitask learning. Loss function is taken as sum of losses of both the tasks.
+
+3) Implements the macro f1 loss i.e. average of f1 of all the classes. 
+
+4) A seq2seq encoder module with forbenius norm based penalization. 
+
 
 ## Requirements:
 * Allennlp==0.7.0
@@ -40,6 +56,8 @@ For running the react based avisulizations of the attention. There are essential
 ## TODO
 * Add New Models
 * Update Documentation and Readme
+* Code Cleanup
+
 
 
 

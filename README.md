@@ -7,7 +7,7 @@ The code implements two different attention mechanisms for encoding the sentence
 
 1) Basic attention layer [Paper](https://arxiv.org/abs/1804.06659). Best Performance of model 69.19% F1 score.
 
-2) A Structured Self-attentive Sentence Embedding by Lin et.al. [Paper](https://arxiv.org/abs/1703.03130).Best Performance of model 69.30% F1 score.
+2) A Structured Self-attentive Sentence Embedding by Lin et.al. [Paper](https://arxiv.org/abs/1703.03130).Best Performance of model 70.00% F1 score.
 
 The model is composed of three basic components :-
 * **Reader** - Responsible for reading the dataset in .txt files in the dataset folder.
@@ -26,7 +26,7 @@ To train the model run:
 
 2) Example of how to implement multitask learning. Loss function is taken as sum of losses of both the tasks.
 
-3) Implements the macro f1 loss i.e. average of f1 of all the classes. 
+3) Implements the macro F1 loss i.e. average of F1 of all the classes. 
 
 4) A seq2seq encoder module with forbenius norm based penalization. 
 
